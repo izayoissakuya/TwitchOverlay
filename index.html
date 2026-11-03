@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eika Army Crowd Overlay V8</title>
+<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="demo-folder-style.css?v=2">
+</head>
+<body>
+<canvas id="crowd"></canvas>
+<div id="demoPanel" class="panel" hidden>
+  <div class="panel-title">EIKA ARMY <span>CROWD OVERLAY</span></div>
+  <section id="twitchSetupPanel" style="position:relative;z-index:21;margin:8px 0 12px;padding:12px;background:rgba(15,16,25,.97);border:1px solid #55406f;border-radius:12px;color:#fff;font:13px system-ui;box-sizing:border-box;max-width:100%">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px"><strong style="letter-spacing:.05em">TWITCH FIRST-TIME SETUP</strong><span id="twitchSetupState" style="color:#f0c978">Checking setup…</span></div>
+    <p style="margin:0 0 10px;color:#c9c5d3">Use your own Twitch Developer application. These credentials are saved locally on this computer and are never shown back in the browser.</p>
+    <label for="twitchClientId" style="display:block;margin:7px 0 4px">Twitch Client ID</label>
+    <input id="twitchClientId" type="text" autocomplete="off" spellcheck="false" placeholder="Paste your application's Client ID" style="width:100%;box-sizing:border-box;padding:9px;border-radius:7px;border:1px solid #49445a;background:#202131;color:white">
+    <label for="twitchClientSecret" style="display:block;margin:7px 0 4px">Twitch Client Secret</label>
+    <input id="twitchClientSecret" type="password" autocomplete="new-password" placeholder="Paste your application's Client Secret" style="width:100%;box-sizing:border-box;padding:9px;border-radius:7px;border:1px solid #49445a;background:#202131;color:white">
+    <label for="twitchChannel" style="display:block;margin:7px 0 4px">Channel to listen to</label>
+    <input id="twitchChannel" type="text" maxlength="25" autocomplete="off" spellcheck="false" placeholder="Your stream channel login (without #)" style="width:100%;box-sizing:border-box;padding:9px;border-radius:7px;border:1px solid #49445a;background:#202131;color:white">
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"><button id="saveTwitchSetup" type="button">Save Twitch Setup</button><button id="toggleTwitchSetupHelp" type="button">Setup instructions</button></div>
+    <div id="twitchSetupHelp" hidden style="margin-top:9px;padding:9px;border-radius:8px;background:#202131;color:#d7d4e2;line-height:1.45">1. Create a Twitch Developer application at dev.twitch.tv/console/apps.<br>2. Set OAuth Redirect URL to <code>http://localhost:8081/auth/twitch/callback</code> and choose the appropriate application category.<br>3. Copy its Client ID and generate a Client Secret.<br>4. Enter those values above and your channel's Twitch login, then save.<br>5. Click Link Twitch Account and authorize the bot account. Keep your Client Secret private.</div>
+    <small id="twitchSetupMessage" role="status" aria-live="polite" style="display:block;margin-top:8px;color:#c9c5d3">Setup has not been checked yet.</small>
+  </section>
+  <div class="panel-row"><span>Viewers in crowd</span><strong id="count">0 / 50</strong></div>
+  <div class="panel-actions">
+    <button id="add">＋ Add roster character</button>
+    <button id="refreshCharacters">⟳ Refresh character list</button>
+    <button id="addSpecial">★ Add special avatar</button>
+    <button id="flyN3Koyama">✦ Make N3Koyama fly</button>
+    <button id="testAerialDuel">⚔ Test Lilith vs N3Koyama Duel</button>
+    <button id="talkTest">♥ Talk test</button>
+    <button id="testRaid">☄ Test Raid (normal characters)</button>
+    <button id="remove">－ Remove one</button>
+    <button id="burst">✦ Crowd cheer</button>
+    <button id="clear">Clear crowd</button>
+  </div>
+  <section class="character-folder-tools" aria-label="Create character asset folders">
+    <strong>Character Folder Creator</strong>
+    <label for="newCharacterName">Character / Twitch username</label>
+    <div class="character-folder-row">
+      <input id="newCharacterName" type="text" maxlength="48" placeholder="e.g. NewCharacter or TwitchName" autocomplete="off">
+    </div>
+    <div class="character-folder-row creator-buttons">
+      <button id="createNormalCharacterFolder" type="button">＋ Create Normal Character Folder</button>
+      <button id="createSpecialCharacterFolder" type="button">★ Create Special Avatar Folder</button>
+      <button id="createFlyingCharacterFolder" type="button">✦ Create Flying Character Folder</button>
+    </div>
+    <small id="characterFolderStatus" role="status" aria-live="polite">Normal folders go in assets/NAME/. Special avatars go in assets/Special Avatars/NAME/. Flying characters get walk/, takeoff/, fly/, landing/, falling/, and emotes/.</small>
+  </section>
+  <p><kbd>+</kbd> add roster · <kbd>S</kbd> add special · <kbd>F</kbd> fly · <kbd>T</kbd> talk test · <kbd>-</kbd> remove · <kbd>C</kbd> cheer · <kbd>R</kbd> clear</p>
+</div>
+  <div id="twitchCornerStack" hidden style="position:fixed;top:12px;right:12px;z-index:1000;width:min(316px,calc(100vw - 24px));display:flex;flex-direction:column;gap:6px;align-items:stretch">
+  <section id="twitchAccountPanel" style="position:relative;width:100%;padding:12px;background:rgba(15,16,25,.96);border:1px solid #55406f;border-radius:12px;color:#fff;font:13px system-ui;box-sizing:border-box">
+    <div style="font-weight:800;letter-spacing:.06em;margin-bottom:8px">TWITCH ACCOUNT</div>
+    <div id="twitchAccountStatus" role="status" style="margin-bottom:9px;color:#c9c5d3">Checking connection…</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button id="linkTwitchAccount" type="button">↗ Link Twitch Account</button><button id="unlinkTwitchAccount" type="button">Unlink</button><button id="openEasySetup" type="button" hidden>⚙ Easy Setup</button></div>
+  </section>
+  <div id="status" class="status" hidden style="position:relative;top:auto;right:auto;bottom:auto;left:auto;width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #55406f;border-radius:8px;background:rgba(15,16,25,.96);color:#ff9db5;font:12px system-ui;z-index:1000">DEMO MODE — roster + special avatar slots</div>
+  </div>
+
+<script src="app.js?v=15"></script>
+<script src="demo-character-folder.js?v=3"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "_comment": "Add bot Twitch login names below. Matching is case-insensitive; do not include @.",
+  "usernames": [
+    "sery_bot",
+    "streamelements"
+  ]
+}

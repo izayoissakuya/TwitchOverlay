@@ -1,0 +1,11 @@
+Eika Army Crowd Overlay V8 — folder creator + Mara fix
+
+Changes in this update:
+- Restored the existing Demo Mode controls unchanged.
+- Added separate Create Normal Character Folder and Create Special Avatar Folder buttons.
+- Normal folders are created under assets/NAME/.
+- Special avatar folders are created under assets/Special Avatars/NAME/ and include walk, conversation, emotes, fly, and landing subfolders.
+- Mara's existing assets/mara sprites are copied into assets/Special Avatars/Mara/ so the current special-avatar loader can find them.
+- Yukzz___ remains registered, but the source archive did not contain its custom PNG sprite assets. See assets/Special Avatars/Yukzz___/README_MISSING_SPRITES.txt.
+
+Folder creation makes directories only. A new character still needs to be registered in app.js before the overlay will use its sprites.
