@@ -40,6 +40,185 @@ if(demo){
 }
 
 const MAX=50, viewers=new Map(), particles=[];
+const CHAT_BUBBLE_DURATION = 4500;
+const CHAT_BUBBLE_MAX_VISIBLE = 8;
+const CHAT_BUBBLE_MAX_TEXT = 140;
+const CHAT_EMOTE_SIZE = 20;
+let chatBubbleSequence = 0;
+const chatEmoteImages = new Map();
+
+function getChatEmoteImage(id) {
+  const safeId = String(id || '');
+  if (!/^[0-9]+(?:_[A-Za-z0-9]+)?$/.test(safeId)) return null;
+  if (chatEmoteImages.has(safeId)) return chatEmoteImages.get(safeId);
+
+  const image = new Image();
+  image.crossOrigin = 'anonymous';
+  image.src = `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(safeId)}/default/dark/2.0`;
+  chatEmoteImages.set(safeId, image);
+  return image;
+}
+
+function receiveChatMessage(data) {
+  if (!data || typeof data.username !== 'string') return;
+  const viewer = viewers.get(data.username.toLowerCase());
+  if (!viewer || viewer.state === 'leave') return;
+
+  const text = String(data.text || '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
+    .trim()
+    .slice(0, CHAT_BUBBLE_MAX_TEXT);
+  const emotes = Array.isArray(data.emotes)
+    ? data.emotes.slice(0, 12).filter(item =>
+        item &&
+        /^[0-9]+(?:_[A-Za-z0-9]+)?$/.test(String(item.id || '')) &&
+        Number.isInteger(item.start) &&
+        Number.isInteger(item.end) &&
+        item.start >= 0 && item.end >= item.start
+      )
+    : [];
+
+  if (!text && !emotes.length) return;
+  viewer.chatBubble = {
+    text,
+    emotes,
+    displayName: String(data.displayName || data.username).slice(0, 32),
+    createdAt: performance.now(),
+    expiresAt: performance.now() + CHAT_BUBBLE_DURATION,
+    order: ++chatBubbleSequence
+  };
+}
+
+function makeChatBubbleItems(bubble) {
+  const chars = Array.from(bubble.text || '');
+  const ranges = [...(bubble.emotes || [])]
+    .sort((a, b) => a.start - b.start)
+    .filter(item => item.start >= 0 && item.end < chars.length);
+  const parts = [];
+  let cursor = 0;
+
+  for (const emote of ranges) {
+    if (emote.start < cursor) continue;
+    if (emote.start > cursor) {
+      parts.push({ type: 'text', text: chars.slice(cursor, emote.start).join('') });
+    }
+    parts.push({
+      type: 'emote',
+      id: String(emote.id),
+      fallback: chars.slice(emote.start, emote.end + 1).join('')
+    });
+    cursor = emote.end + 1;
+  }
+  if (cursor < chars.length) parts.push({ type: 'text', text: chars.slice(cursor).join('') });
+
+  const items = [];
+  for (const part of parts) {
+    if (part.type === 'emote') {
+      items.push(part);
+    } else {
+      const chunks = part.text.match(/\s+|[^\s]+/gu) || [];
+      for (const chunk of chunks) items.push({ type: 'text', text: chunk });
+    }
+  }
+  return items;
+}
+
+function drawChatBubble(viewer, now, targetHeight) {
+  const bubble = viewer.chatBubble;
+  if (!bubble) return;
+  if (now >= bubble.expiresAt) {
+    viewer.chatBubble = null;
+    return;
+  }
+
+  // Limit simultaneous bubbles to the eight most recent messages to avoid crowding.
+  const newest = [...viewers.values()]
+    .filter(item => item.chatBubble && item.chatBubble.expiresAt > now)
+    .sort((a, b) => b.chatBubble.order - a.chatBubble.order)
+    .slice(0, CHAT_BUBBLE_MAX_VISIBLE);
+  if (!newest.includes(viewer)) return;
+
+  const opacityIn = Math.min(1, (now - bubble.createdAt) / 140);
+  const opacityOut = Math.min(1, (bubble.expiresAt - now) / 360);
+  const alpha = Math.max(0, Math.min(opacityIn, opacityOut));
+  if (alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = '12px Segoe UI, Arial, sans-serif';
+  ctx.textBaseline = 'middle';
+
+  const maxContentWidth = 206;
+  const lines = [{ items: [], width: 0 }];
+  const items = makeChatBubbleItems(bubble);
+  for (const item of items) {
+    const image = item.type === 'emote' ? getChatEmoteImage(item.id) : null;
+    const readyImage = image && image.complete && image.naturalWidth > 0 ? image : null;
+    const width = item.type === 'emote'
+      ? CHAT_EMOTE_SIZE
+      : ctx.measureText(item.text).width;
+    let line = lines[lines.length - 1];
+
+    if (line.items.length && line.width + width > maxContentWidth && lines.length < 2) {
+      lines.push({ items: [], width: 0 });
+      line = lines[lines.length - 1];
+    }
+    if (lines.length > 1 && line.width + width > maxContentWidth) break;
+    line.items.push({ ...item, image: readyImage, width });
+    line.width += width;
+  }
+
+  const contentWidth = Math.max(28, ...lines.map(line => line.width));
+  const paddingX = 9;
+  const paddingY = 6;
+  const lineHeight = 22;
+  const bubbleWidth = Math.min(224, contentWidth + paddingX * 2);
+  const bubbleHeight = lines.length * lineHeight + paddingY * 2;
+  const left = -bubbleWidth / 2;
+  const top = -targetHeight - 28 - bubbleHeight;
+
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 7;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = 'rgba(24,29,43,0.24)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(left, top, bubbleWidth, bubbleHeight, 8);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.stroke();
+
+  // Small centered speech-bubble tail.
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(-5, top + bubbleHeight - 1);
+  ctx.lineTo(0, top + bubbleHeight + 6);
+  ctx.lineTo(5, top + bubbleHeight - 1);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#222638';
+  lines.forEach((line, lineIndex) => {
+    let x = -line.width / 2;
+    const y = top + paddingY + lineIndex * lineHeight + lineHeight / 2;
+    for (const item of line.items) {
+      if (item.type === 'emote') {
+        if (item.image) {
+          ctx.drawImage(item.image, x, y - CHAT_EMOTE_SIZE / 2, CHAT_EMOTE_SIZE, CHAT_EMOTE_SIZE);
+        } else {
+          ctx.font = '11px Segoe UI, Arial, sans-serif';
+          ctx.fillText(item.fallback, x, y, item.width + 8);
+          ctx.font = '12px Segoe UI, Arial, sans-serif';
+        }
+      } else {
+        ctx.fillText(item.text, x, y, Math.max(1, item.width + 1));
+      }
+      x += item.width;
+    }
+  });
+  ctx.restore();
+}
 // Scaling/layout controls: sprite height in CSS pixels, plus safe room for labels and rows.
 const CHARACTER_HEIGHT=200;
 // Crowd-aware sizing: preserve the large chibi look for small audiences, then
@@ -55,7 +234,138 @@ const TARGET_RENDER_FPS=30, FRAME_INTERVAL=1000/TARGET_RENDER_FPS;
 let W=innerWidth,H=innerHeight,dpr=Math.min(devicePixelRatio||1,2),last=performance.now(),lastRender=last;
 const spriteImages = {};
 const walkFrames = {};
+const idleFrames = {};
+const IDLE_FRAME_COUNT = 11;
 const emoteSprites = {};
+const characterGifs = {
+    idle: {},
+    walk: {},
+    conversation: {}
+};
+
+// Canvas drawImage() uses an animated image's default/first frame.
+// Decode GIFs into composited canvas frames so this canvas renderer can animate them.
+const gifDecoderPromise = import("https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/+esm")
+    .then(module => {
+        const parseGIF = module.parseGIF || module.default?.parseGIF;
+        const decompressFrames = module.decompressFrames || module.default?.decompressFrames;
+        if (typeof parseGIF !== "function" || typeof decompressFrames !== "function") {
+            throw new Error("gifuct-js exports were not found.");
+        }
+        return { parseGIF, decompressFrames };
+    });
+
+async function decodeGifAnimation(url) {
+    const [{ parseGIF, decompressFrames }, response] = await Promise.all([
+        gifDecoderPromise,
+        fetch(url, { cache: "no-cache" })
+    ]);
+
+    if (!response.ok) throw new Error(`Could not load ${url}: HTTP ${response.status}`);
+
+    const parsed = parseGIF(await response.arrayBuffer());
+    const patches = decompressFrames(parsed, true);
+    const width = parsed.lsd.width;
+    const height = parsed.lsd.height;
+
+    if (!patches.length || !width || !height) {
+        throw new Error(`No usable frames found in ${url}`);
+    }
+
+    // GIF frames can be partial rectangles. Composite each patch on the
+    // logical screen, then keep a full-canvas snapshot for drawing.
+    const working = document.createElement("canvas");
+    working.width = width;
+    working.height = height;
+    const workCtx = working.getContext("2d", { willReadFrequently: true });
+
+    const frames = [];
+    let previousPatch = null;
+    let restoreBeforePrevious = null;
+
+    for (const patch of patches) {
+        if (previousPatch) {
+            if (previousPatch.disposalType === 2) {
+                workCtx.clearRect(
+                    previousPatch.dims.left,
+                    previousPatch.dims.top,
+                    previousPatch.dims.width,
+                    previousPatch.dims.height
+                );
+            } else if (previousPatch.disposalType === 3 && restoreBeforePrevious) {
+                workCtx.putImageData(
+                    restoreBeforePrevious,
+                    previousPatch.dims.left,
+                    previousPatch.dims.top
+                );
+            }
+        }
+
+        const { left, top, width: patchWidth, height: patchHeight } = patch.dims;
+        const restoreForThisPatch = patch.disposalType === 3
+            ? workCtx.getImageData(left, top, patchWidth, patchHeight)
+            : null;
+
+        workCtx.putImageData(
+            new ImageData(new Uint8ClampedArray(patch.patch), patchWidth, patchHeight),
+            left,
+            top
+        );
+
+        const snapshot = document.createElement("canvas");
+        snapshot.width = width;
+        snapshot.height = height;
+        snapshot.getContext("2d").drawImage(working, 0, 0);
+
+        // GIF frame delays are encoded in hundredths of a second.
+        const delay = Math.max(20, Number(patch.delay) || 100);
+        frames.push({ canvas: snapshot, delay });
+
+        previousPatch = patch;
+        restoreBeforePrevious = restoreForThisPatch;
+    }
+
+    return {
+        frames,
+        duration: frames.reduce((sum, frame) => sum + frame.delay, 0),
+        startedAt: performance.now(),
+        width,
+        height
+    };
+}
+
+function loadCharacterGif(kind, action) {
+    const key = kind.toLowerCase();
+    if (characterGifs[action][key]) return;
+
+    // Mark as loading immediately so the periodic character scan won't duplicate requests.
+    characterGifs[action][key] = { loading: true, frames: [], duration: 0 };
+
+    decodeGifAnimation(`assets/${key}/${action}.gif`)
+        .then(animation => {
+            characterGifs[action][key] = animation;
+            console.info(`[Reimu GIF] ${action}: ${animation.frames.length} frames loaded.`);
+        })
+        .catch(error => {
+            characterGifs[action][key] = { failed: true, frames: [], duration: 0 };
+            console.error(`[Reimu GIF] ${action} failed:`, error);
+        });
+}
+
+function getCharacterGifFrame(action, kind, now) {
+    const animation = characterGifs[action]?.[String(kind || "").toLowerCase()];
+    if (!animation || !animation.frames?.length || !animation.duration) return null;
+
+    let elapsed = ((now - animation.startedAt) % animation.duration + animation.duration)
+        % animation.duration;
+
+    for (const frame of animation.frames) {
+        if (elapsed < frame.delay) return frame.canvas;
+        elapsed -= frame.delay;
+    }
+
+    return animation.frames[animation.frames.length - 1].canvas;
+}
 const conversationSprites = {};
 const conversationFrames = {};
 const CONVERSATION_FRAME_COUNT = 6;
@@ -184,12 +494,58 @@ function loadDuelLandingFrames(kind, specialAvatar = null) {
 let activeAerialDuel = null;
 
 function loadNormalCharacterAssets(kind) {
-  const idle = new Image(); idle.src = `assets/${kind}/idle.png`; spriteImages[kind] = idle;
-  walkFrames[kind] = Array.from({length:6}, (_,i) => { const img=new Image(); img.src=`assets/${kind}/walk/frame_${String(i+1).padStart(2,'0')}.png`; return img; });
-  conversationFrames[kind] = Array.from({length:CONVERSATION_FRAME_COUNT}, (_,i) => { const img=new Image(); img.src=`assets/${kind}/conversation/frame_${String(i+1).padStart(2,'0')}.png`; return img; });
-  const talk = new Image(); talk.src=`assets/${kind}/conversation/talk.png`; conversationSprites[kind]=talk;
-  emoteSprites[kind] = Array.from({length:EMOTE_COUNT}, (_,i) => { const img=new Image(); img.src=`assets/${kind}/emotes/emote_${String(i+1).padStart(2,'0')}.png`; return img; });
-  const falling = new Image(); falling.src=`assets/${kind}/falling/frame_01.png`; fallingSprites[kind]=falling;
+  const idle = new Image();
+  idle.src = `assets/${kind}/idle.png`;
+  spriteImages[kind] = idle;
+
+  const key = kind.toLowerCase();
+
+  if (key === "reimu" || key === "marisa" || key === "youmu" || key === "remilia" || key === "flandre") {
+    // Reimu uses only the three GIF files; no per-frame PNG requests.
+    for (const action of ["idle", "walk", "conversation"]) {
+      loadCharacterGif(key, action);
+    }
+  } else {
+    // All other normal characters keep the existing PNG-frame system.
+    walkFrames[kind] = Array.from({ length: 6 }, (_, i) => {
+      const img = new Image();
+      img.src = `assets/${kind}/walk/frame_${String(i + 1).padStart(2, "0")}.png`;
+      return img;
+    });
+
+    conversationFrames[kind] = Array.from(
+      { length: CONVERSATION_FRAME_COUNT },
+      (_, i) => {
+        const img = new Image();
+        img.src = `assets/${kind}/conversation/frame_${String(i + 1).padStart(2, "0")}.png`;
+        return img;
+      }
+    );
+
+    const talk = new Image();
+    talk.src = `assets/${kind}/conversation/talk.png`;
+    conversationSprites[kind] = talk;
+
+    idleFrames[kind] = Array.from(
+      { length: IDLE_FRAME_COUNT },
+      (_, i) => {
+        const img = new Image();
+        img.src = `assets/${kind}/idle/frame_${String(i + 1).padStart(2, "0")}.png`;
+        return img;
+      }
+    );
+  }
+
+  // These optional assets remain available for every normal character.
+  emoteSprites[kind] = Array.from({ length: EMOTE_COUNT }, (_, i) => {
+    const img = new Image();
+    img.src = `assets/${kind}/emotes/emote_${String(i + 1).padStart(2, "0")}.png`;
+    return img;
+  });
+
+  const falling = new Image();
+  falling.src = `assets/${kind}/falling/frame_01.png`;
+  fallingSprites[kind] = falling;
 }
 function registerDiscoveredCharacter(folder) {
   const kind = String(folder || '').trim();
@@ -325,9 +681,33 @@ function create(username,skinIndex=null){
 // Transparent padding varies by character, so use the widest available idle/walk/talk/emote image.
 function halfSpriteWidth(v){
  const key=roster[v.skin]?.kind;
- const images=[spriteImages[key],...(walkFrames[key]||[]),...(conversationFrames[key]||[]),conversationSprites[key],...(emoteSprites[key]||[]),...(v.canFly?[...n3koyamaFlyFrames,...n3koyamaLandingFrames]:[])].filter(Boolean);
+ const images = [
+    spriteImages[key],
+
+    // Decoded animated GIF frames
+    ...(characterGifs.idle[key]?.frames || []).map(frame => frame.canvas),
+    ...(characterGifs.walk[key]?.frames || []).map(frame => frame.canvas),
+    ...(characterGifs.conversation[key]?.frames || []).map(frame => frame.canvas),
+
+    // Existing PNG fallbacks
+    ...(idleFrames[key] || []),
+    ...(walkFrames[key] || []),
+    ...(conversationFrames[key] || []),
+    conversationSprites[key],
+    ...(emoteSprites[key] || []),
+
+    ...(v.canFly
+        ? [...n3koyamaFlyFrames, ...n3koyamaLandingFrames]
+        : [])
+].filter(Boolean);
  let maxAspect=0;
- for(const img of images) if(img.complete&&img.naturalWidth>0&&img.naturalHeight>0) maxAspect=Math.max(maxAspect,img.naturalWidth/img.naturalHeight);
+ for (const img of images) {
+   const imageWidth = img.naturalWidth || img.width || 0;
+   const imageHeight = img.naturalHeight || img.height || 0;
+   if (imageWidth > 0 && imageHeight > 0) {
+     maxAspect = Math.max(maxAspect, imageWidth / imageHeight);
+   }
+ }
  if(!maxAspect)maxAspect=0.8;
  return Math.min(105,Math.max(28,(crowdCharacterHeight()*maxAspect)/2))+EDGE_PADDING;
 }
@@ -470,42 +850,144 @@ function draw(v,now,targetHeight){
       sprite=frames[Math.min(frames.length-1,Math.floor(progress*frames.length))];
     }
   }
-  if (v.state === "interact") {
-   // Special avatars keep their own art while talking; never substitute a regular roster sprite.
-   if (v.specialAvatar) {
-     const frames = specialConversation[v.specialAvatar] || [];
-     const allFramesReady = frames.length === CONVERSATION_FRAME_COUNT && frames.every(frame => frame.complete && frame.naturalWidth > 0);
-     if (allFramesReady) sprite = frames[Math.floor(now / 1000 * 6) % CONVERSATION_FRAME_COUNT];
-   } else {
-     const frames = conversationFrames[c.kind] || [];
-     const allFramesReady = frames.length === CONVERSATION_FRAME_COUNT && frames.every(frame => frame.complete && frame.naturalWidth > 0);
-     if (allFramesReady) {
-       // Animate at 6 frames per second; the pose stays synchronized to elapsed time.
-       sprite = frames[Math.floor(now / 1000 * 6) % CONVERSATION_FRAME_COUNT];
-     } else if (conversationSprites[c.kind] && conversationSprites[c.kind].complete && conversationSprites[c.kind].naturalWidth > 0) {
-       sprite = conversationSprites[c.kind];
-     }
-   }
- }
+    if (v.state === "interact") {
+
+      if (v.specialAvatar) {
+
+          // Preserve existing special avatar animations.
+          const frames = specialConversation[v.specialAvatar] || [];
+
+          const ready =
+              frames.length === CONVERSATION_FRAME_COUNT &&
+              frames.every(frame =>
+                  frame.complete && frame.naturalWidth > 0
+              );
+
+          if (ready) {
+              sprite = frames[
+                  Math.floor(now / 1000 * 6) % CONVERSATION_FRAME_COUNT
+              ];
+          }
+
+      } else {
+          const gifFrame = getCharacterGifFrame("conversation", c.kind, now);
+
+          if (gifFrame) {
+              sprite = gifFrame;
+          } else {
+              // PNG fallback while the GIF is loading or if it fails.
+              const frames = conversationFrames[c.kind] || [];
+              const ready =
+                  frames.length === CONVERSATION_FRAME_COUNT &&
+                  frames.every(frame =>
+                      frame.complete && frame.naturalWidth > 0
+                  );
+
+              if (ready) {
+                  sprite = frames[
+                      Math.floor(now / 1000 * 6) % CONVERSATION_FRAME_COUNT
+                  ];
+              } else if (
+                  conversationSprites[c.kind] &&
+                  conversationSprites[c.kind].complete &&
+                  conversationSprites[c.kind].naturalWidth > 0
+              ) {
+                  sprite = conversationSprites[c.kind];
+              }
+          }
+      }
+  }
  // Play each character's walk cycle while entering or leaving. Frame timing is
  // time-based so it remains consistent across displays.
- if ((v.state === "enter" || v.state === "leave" || v.state === "roam" || v.state === "duelApproach") && (v.specialAvatar ? specialWalk[v.specialAvatar] : walkFrames[c.kind])) {
-   const frames = v.specialAvatar ? specialWalk[v.specialAvatar] : walkFrames[c.kind];
-   const readyFrames = frames.filter(frame => frame.complete && frame.naturalWidth > 0);
-   if (readyFrames.length === frames.length) {
-     sprite = frames[Math.floor(now / 1000 * 9) % frames.length];
-   }
- }
- if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+ // GIF-based walking animation
+  if (
+      v.state === "enter" ||
+      v.state === "leave" ||
+      v.state === "roam" ||
+      v.state === "duelApproach"
+  ) {
+
+      if (v.specialAvatar) {
+
+          // Keep special avatars on their existing PNG system.
+          const frames = specialWalk[v.specialAvatar] || [];
+
+          if (
+              frames.length > 0 &&
+              frames.every(frame =>
+                  frame.complete && frame.naturalWidth > 0
+              )
+          ) {
+              sprite = frames[
+                  Math.floor(now / 1000 * 9) % frames.length
+              ];
+          }
+
+      } else {
+          const gifFrame = getCharacterGifFrame("walk", c.kind, now);
+
+          if (gifFrame) {
+              sprite = gifFrame;
+          } else {
+              // PNG fallback while the GIF is loading or if it fails.
+              const frames = walkFrames[c.kind] || [];
+
+              if (
+                  frames.length > 0 &&
+                  frames.every(frame =>
+                      frame.complete && frame.naturalWidth > 0
+                  )
+              ) {
+                  sprite = frames[
+                      Math.floor(now / 1000 * 9) % frames.length
+                  ];
+              }
+          }
+      }
+  }
+
+  if (v.state === "idle" && !v.specialAvatar && !v.activeEmote) {
+
+      const gifFrame = getCharacterGifFrame("idle", c.kind, now);
+
+      if (gifFrame) {
+          sprite = gifFrame;
+      } else {
+          // PNG fallback while the GIF is loading or if it fails.
+          const frames = idleFrames[c.kind] || [];
+
+          const ready =
+              frames.length === IDLE_FRAME_COUNT &&
+              frames.every(frame =>
+                  frame.complete && frame.naturalWidth > 0
+              );
+
+          if (ready) {
+              sprite = frames[
+                  Math.floor(now / 1000 * 4) % frames.length
+              ];
+          }
+      }
+  }
+ const spriteWidth = sprite?.naturalWidth || sprite?.width || 0;
+  const spriteHeight = sprite?.naturalHeight || sprite?.height || 0;
+
+  if (sprite && spriteWidth > 0 && spriteHeight > 0) {
    // Every character uses one consistent height and keeps its original aspect ratio.
    // Do not randomize sprite scale: viewers should look equally sized in the crowd.
-   const targetWidth = targetHeight * (sprite.naturalWidth / sprite.naturalHeight);
+   const targetWidth = targetHeight * (spriteWidth / spriteHeight);
    const spriteTop = -targetHeight - CHARACTER_BOTTOM_INSET;
-   ctx.imageSmoothingEnabled = true;
-   ctx.imageSmoothingQuality = "high";
+// Preserve original SWR pixel-art edges.
+    ctx.imageSmoothingEnabled = false;
+  const kind = c.kind.toLowerCase();
+
+  const shouldFlip =
+    (kind === "marisa" || kind === "youmu" || kind === "flandre"  )
+      ? v.moveDir > 0
+      : v.moveDir < 0;
    // Mirror the walk sprite when moving left so Eika and Audrey face their travel direction.
-   if (v.moveDir < 0 && (v.state === "enter" || v.state === "leave" || v.state === "roam" || v.state === "duelApproach" || v.state === "duelTakeoff" || v.state === "duelAirReady" || v.state === "duelFight" || v.state === "duelLand" || v.state === "idle" || v.state === "interact" || v.state === "flight")) {
-     ctx.save(); ctx.scale(-1, 1); ctx.drawImage(sprite, -targetWidth / 2, spriteTop, targetWidth, targetHeight); ctx.restore();
+   if (shouldFlip && (v.state === "enter" || v.state === "leave" || v.state === "roam" || v.state === "duelApproach" || v.state === "duelTakeoff" || v.state === "duelAirReady" || v.state === "duelFight" || v.state === "duelLand" || v.state === "idle" || v.state === "interact" || v.state === "flight")) {
+     ctx.save(); ctx.scale(-1, 1); ctx.drawImage(sprite, -targetWidth / 2, spriteTop, targetWidth, targetHeight); drawChatBubble(v, now, targetHeight); ctx.restore();
    } else {
      ctx.drawImage(sprite, -targetWidth / 2, spriteTop, targetWidth, targetHeight);
    }
@@ -517,6 +999,7 @@ function draw(v,now,targetHeight){
    ctx.fillStyle="#fff";ctx.textAlign="center";ctx.textBaseline="middle";
    ctx.fillText(label,0,spriteTop-10,tw-6);
    }
+   drawChatBubble(v, now, targetHeight);
    ctx.restore();
    return;
  }
@@ -873,6 +1356,7 @@ function connectTwitchBridge(){
       }
       if(data.type==="raid"){const raidCount=Math.max(1,Math.min(MAX,Number(data.viewers)||1));spawnRaid(raidCount);}
       if(data.type==="chatSeen"&&typeof data.username==="string")assignRaidGuestName(data.username);
+      if(data.type === 'chatMessage') receiveChatMessage(data);
       if(data.type==="status"&&demo&&status)status.textContent="Twitch connector: "+String(data.message||"connected");
     });
     twitchSocket.addEventListener("close",()=>{twitchRetryTimer=setTimeout(connectTwitchBridge,3000)});

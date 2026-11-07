@@ -243,6 +243,46 @@ function isKnownNormalCharacter(requested) {
     return fs.readdirSync(assetsRoot, {withFileTypes:true}).some(entry => entry.isDirectory() && entry.name !== 'Special Avatars' && !entry.name.startsWith('.') && normalizedCharacterName(entry.name) === wanted);
   } catch { return false; }
 }
+function decodeIrcTagValue(value) {
+  return String(value || '').replace(/\\([:\\snr])/g, (_, code) => ({
+    ':': ';',
+    s: ' ',
+    '\\': '\\',
+    r: '\r',
+    n: '\n'
+  }[code] ?? code));
+}
+
+function stripChatAction(rawMessage) {
+  const value = String(rawMessage || '');
+  if (value.startsWith('\u0001ACTION ')) {
+    return value.slice(8).replace(/\u0001$/, '');
+  }
+  return value.replace(/\u0001/g, '');
+}
+// Twitch emote tag format: emoteId:start-end,start-end/anotherId:start-end
+// The wire positions are zero-based and inclusive. Array.from() keeps them
+// aligned with Unicode code points instead of JavaScript UTF-16 code units.
+function parseTwitchEmoteTag(tagValue) {
+  const result = [];
+  for (const group of String(tagValue || '').split('/')) {
+    const colon = group.indexOf(':');
+    if (colon <= 0) continue;
+    const id = group.slice(0, colon);
+    if (!/^[0-9]+(?:_[A-Za-z0-9]+)?$/.test(id)) continue;
+
+    for (const rangeText of group.slice(colon + 1).split(',')) {
+      const match = rangeText.match(/^(\d+)-(\d+)$/);
+      if (!match) continue;
+      const start = Number(match[1]);
+      const end = Number(match[2]);
+      if (Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && end >= start) {
+        result.push({ id, start, end });
+      }
+    }
+  }
+  return result.sort((a, b) => a.start - b.start || a.end - b.end);
+}
 function broadcast(data) { const msg=JSON.stringify(data); for (const c of clients) if(c.readyState===WebSocket.OPEN)c.send(msg); }
 function setViewer(username, present, source='IRC') {
   if (!username || !/^[a-zA-Z0-9_]{1,25}$/.test(username) || username.toLowerCase() === login || isBannedBot(username)) return;
@@ -345,7 +385,9 @@ function connectIRC(){
       // their reserved special avatars are protected there as well.
       const chatMatch=line.match(/^(?:@([^ ]+) )?:([^! ]+)!.* PRIVMSG #([^ ]+) :(.*)$/i);
       if(chatMatch && chatMatch[3].toLowerCase()===channel){
-        const chatUsername=chatMatch[2], message=chatMatch[4].trim();
+        const chatUsername = chatMatch[2];
+        const rawMessage = chatMatch[4];
+        const message = stripChatAction(rawMessage).trim();
         if(/^[a-zA-Z0-9_]{1,25}$/.test(chatUsername) && !isBannedBot(chatUsername)) broadcast({type:'chatSeen',username:chatUsername});
         const tags={};
         for(const part of (chatMatch[1]||'').split(';')){const eq=part.indexOf('=');if(eq>=0)tags[part.slice(0,eq)]=part.slice(eq+1);}
@@ -364,6 +406,39 @@ function connectIRC(){
             }
             broadcast({type:'avatarChange',username:chatUsername,character:requested,isVip});
           }
+        }
+        if (
+          message &&
+          !message.startsWith('!') &&
+          /^[a-zA-Z0-9_]{1,25}$/.test(chatUsername) &&
+          chatUsername.toLowerCase() !== login &&
+          !isBannedBot(chatUsername)
+        ) {
+          const rawChars = Array.from(stripChatAction(rawMessage));
+          const messageChars = Array.from(message);
+          const firstVisibleChar = rawChars.findIndex(char => !/\s/u.test(char));
+          const leadingWhitespace = firstVisibleChar < 0 ? 0 : firstVisibleChar;
+
+          const emotes = parseTwitchEmoteTag(tags.emotes)
+            .map(emote => ({
+              id: emote.id,
+              start: emote.start - leadingWhitespace,
+              end: emote.end - leadingWhitespace
+            }))
+            .filter(emote =>
+              emote.start >= 0 &&
+              emote.end >= emote.start &&
+              emote.end < messageChars.length
+            );
+
+          broadcast({
+            type: 'chatMessage',
+            username: chatUsername,
+            displayName: decodeIrcTagValue(tags['display-name']) || chatUsername,
+            text: message.slice(0, 140),
+            emotes: emotes.slice(0, 12),
+            messageId: tags.id || null
+          });
         }
       }
       // Twitch IRC announces incoming raids as USERNOTICE with msg-id=raid and msg-param-viewerCount.

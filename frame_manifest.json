@@ -1,0 +1,356 @@
+{
+  "source_sheet": "Spriters Resource \u2014 Touhou Hisouten (Scarlet Weather Rhapsody) \u2014 Reimu Hakurei",
+  "background_color_removed": [
+    47,
+    95,
+    115,
+    255
+  ],
+  "normalization": "Tight bounds from source sheet, exact background color made transparent, nearest-neighbour resized to 45px height.",
+  "idle_frames": [
+    {
+      "source_sprite": 3,
+      "source_xy": [
+        5,
+        31
+      ],
+      "source_bbox": [
+        5,
+        31,
+        29,
+        33
+      ],
+      "output": "assets/reimu/idle/frame_01.png",
+      "output_size": [
+        40,
+        45
+      ]
+    },
+    {
+      "source_sprite": 4,
+      "source_xy": [
+        37,
+        31
+      ],
+      "source_bbox": [
+        37,
+        31,
+        29,
+        33
+      ],
+      "output": "assets/reimu/idle/frame_02.png",
+      "output_size": [
+        40,
+        45
+      ]
+    },
+    {
+      "source_sprite": 5,
+      "source_xy": [
+        69,
+        31
+      ],
+      "source_bbox": [
+        69,
+        31,
+        29,
+        33
+      ],
+      "output": "assets/reimu/idle/frame_03.png",
+      "output_size": [
+        40,
+        45
+      ]
+    },
+    {
+      "source_sprite": 9,
+      "source_xy": [
+        99,
+        32
+      ],
+      "source_bbox": [
+        99,
+        32,
+        31,
+        32
+      ],
+      "output": "assets/reimu/idle/frame_04.png",
+      "output_size": [
+        44,
+        45
+      ]
+    },
+    {
+      "source_sprite": 10,
+      "source_xy": [
+        132,
+        32
+      ],
+      "source_bbox": [
+        132,
+        32,
+        30,
+        32
+      ],
+      "output": "assets/reimu/idle/frame_05.png",
+      "output_size": [
+        42,
+        45
+      ]
+    },
+    {
+      "source_sprite": 11,
+      "source_xy": [
+        165,
+        32
+      ],
+      "source_bbox": [
+        165,
+        32,
+        29,
+        32
+      ],
+      "output": "assets/reimu/idle/frame_06.png",
+      "output_size": [
+        41,
+        45
+      ]
+    },
+    {
+      "source_sprite": 6,
+      "source_xy": [
+        197,
+        31
+      ],
+      "source_bbox": [
+        197,
+        31,
+        30,
+        33
+      ],
+      "output": "assets/reimu/idle/frame_07.png",
+      "output_size": [
+        41,
+        45
+      ]
+    },
+    {
+      "source_sprite": 7,
+      "source_xy": [
+        230,
+        31
+      ],
+      "source_bbox": [
+        230,
+        31,
+        30,
+        33
+      ],
+      "output": "assets/reimu/idle/frame_08.png",
+      "output_size": [
+        41,
+        45
+      ]
+    },
+    {
+      "source_sprite": 8,
+      "source_xy": [
+        262,
+        31
+      ],
+      "source_bbox": [
+        262,
+        31,
+        31,
+        33
+      ],
+      "output": "assets/reimu/idle/frame_09.png",
+      "output_size": [
+        42,
+        45
+      ]
+    },
+    {
+      "source_sprite": 1,
+      "source_xy": [
+        295,
+        30
+      ],
+      "source_bbox": [
+        295,
+        30,
+        31,
+        34
+      ],
+      "output": "assets/reimu/idle/frame_10.png",
+      "output_size": [
+        41,
+        45
+      ]
+    },
+    {
+      "source_sprite": 2,
+      "source_xy": [
+        329,
+        30
+      ],
+      "source_bbox": [
+        329,
+        30,
+        27,
+        34
+      ],
+      "output": "assets/reimu/idle/frame_11.png",
+      "output_size": [
+        36,
+        45
+      ]
+    }
+  ],
+  "walk_frames": [
+    {
+      "source_sprite": 23,
+      "source_xy": [
+        3,
+        107
+      ],
+      "source_bbox": [
+        3,
+        107,
+        31,
+        39
+      ],
+      "output": "assets/reimu/walk/frame_01.png",
+      "output_size": [
+        36,
+        45
+      ]
+    },
+    {
+      "source_sprite": 24,
+      "source_xy": [
+        37,
+        109
+      ],
+      "source_bbox": [
+        37,
+        109,
+        32,
+        37
+      ],
+      "output": "assets/reimu/walk/frame_02.png",
+      "output_size": [
+        39,
+        45
+      ]
+    },
+    {
+      "source_sprite": 26,
+      "source_xy": [
+        74,
+        110
+      ],
+      "source_bbox": [
+        74,
+        110,
+        28,
+        36
+      ],
+      "output": "assets/reimu/walk/frame_03.png",
+      "output_size": [
+        35,
+        45
+      ]
+    },
+    {
+      "source_sprite": 27,
+      "source_xy": [
+        105,
+        110
+      ],
+      "source_bbox": [
+        105,
+        110,
+        30,
+        36
+      ],
+      "output": "assets/reimu/walk/frame_04.png",
+      "output_size": [
+        38,
+        45
+      ]
+    },
+    {
+      "source_sprite": 28,
+      "source_xy": [
+        136,
+        110
+      ],
+      "source_bbox": [
+        136,
+        110,
+        31,
+        36
+      ],
+      "output": "assets/reimu/walk/frame_05.png",
+      "output_size": [
+        39,
+        45
+      ]
+    },
+    {
+      "source_sprite": 25,
+      "source_xy": [
+        169,
+        109
+      ],
+      "source_bbox": [
+        169,
+        109,
+        29,
+        37
+      ],
+      "output": "assets/reimu/walk/frame_06.png",
+      "output_size": [
+        35,
+        45
+      ]
+    },
+    {
+      "source_sprite": 30,
+      "source_xy": [
+        200,
+        115
+      ],
+      "source_bbox": [
+        200,
+        115,
+        20,
+        31
+      ],
+      "output": "assets/reimu/walk/frame_07.png",
+      "output_size": [
+        29,
+        45
+      ]
+    },
+    {
+      "source_sprite": 29,
+      "source_xy": [
+        231,
+        110
+      ],
+      "source_bbox": [
+        231,
+        110,
+        29,
+        36
+      ],
+      "output": "assets/reimu/walk/frame_08.png",
+      "output_size": [
+        36,
+        45
+      ]
+    }
+  ]
+}

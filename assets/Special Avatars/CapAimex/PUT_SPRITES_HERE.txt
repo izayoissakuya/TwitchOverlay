@@ -1,1 +1,0 @@
-Add CapAimex's special avatar sprite PNGs and animation frames in this folder.

@@ -1,0 +1,47 @@
+{
+  "idle": {
+    "source_frames": 11,
+    "duration_ms": 120,
+    "fps": 8.33,
+    "crop_union": [
+      65,
+      8,
+      352,
+      355
+    ],
+    "normalized_content_size": [
+      463,
+      560
+    ]
+  },
+  "walk": {
+    "source_frames": 8,
+    "duration_ms": 80,
+    "fps": 12.5,
+    "crop_union": [
+      42,
+      5,
+      390,
+      432
+    ],
+    "normalized_content_size": [
+      456,
+      560
+    ]
+  },
+  "conversation": {
+    "source_frames": 6,
+    "duration_ms": 100,
+    "fps": 10.0,
+    "crop_union": [
+      41,
+      11,
+      472,
+      499
+    ],
+    "normalized_content_size": [
+      495,
+      560
+    ]
+  }
+}

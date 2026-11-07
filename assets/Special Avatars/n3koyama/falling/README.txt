@@ -1,1 +1,0 @@
-Place ONE transparent PNG named `frame_01.png` in this folder. It is the character's falling pose used during raid arrivals. No other frames are needed. Keep the sprite's scale/canvas consistent with the character's idle sprite. If no image is present, the overlay uses its normal sprite instead.

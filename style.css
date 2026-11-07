@@ -15,3 +15,6 @@ button:hover{filter:brightness(1.12)}
 .panel p{font-size:11px;color:#aab4cc;margin:11px 0 0}
 kbd{padding:2px 5px;border-radius:4px;background:#30364b;color:white}
 .status{position:fixed;right:18px;top:18px;background:#11182add;border:1px solid #ffffff22;padding:8px 11px;border-radius:8px;font-size:11px;letter-spacing:.6px;color:#ffcfdf}
+[hidden] {
+    display: none !important;
+}

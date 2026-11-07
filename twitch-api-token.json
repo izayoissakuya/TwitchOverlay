@@ -1,14 +1,14 @@
 {
-  "accessToken": "bvfbvt3hb7ueuh6kphfru9s9g4ppcn",
-  "refreshToken": "gbh9mn8wis7snl57aed8g0o14oiv547impvryaefzu6hw6xcqi",
-  "expiresIn": 14030,
-  "obtainedAt": "2026-11-02T14:23:05.552Z",
+  "accessToken": "txqek4sqzb0ybbdegy7tfqksqexf4h",
+  "refreshToken": "opp1zwmxtkc336yyv5efaebgvp834m0k9vzzpa686foun67nib",
+  "expiresIn": 14313,
+  "obtainedAt": "2026-11-06T14:22:33.590Z",
   "scopes": [
     "moderator:read:chatters"
   ],
-  "clientId": "7t4h7pm8dikc0imh23byd2pdnou019",
-  "authorizedUserId": "541045554",
-  "authorizedUserLogin": "xxsefayt",
-  "broadcasterId": "541045554",
-  "moderatorId": "541045554"
+  "clientId": "5z4qzc0sskef145hie8x7txdre89ua",
+  "authorizedUserId": "176382035",
+  "authorizedUserLogin": "lzayoiisakuya",
+  "broadcasterId": "176382035",
+  "moderatorId": "176382035"
 }
